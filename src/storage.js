@@ -13,46 +13,49 @@ function ensureStorageDir() {
 
 function readSessions() {
   ensureStorageDir();
-  if (!fs.existsSync(SESSIONS_FILE)) {
-    return {};
-  }
+  if (!fs.existsSync(SESSIONS_FILE)) return [];
   try {
     const raw = fs.readFileSync(SESSIONS_FILE, 'utf-8');
     return JSON.parse(raw);
   } catch {
-    return {};
+    return [];
   }
 }
 
 function writeSessions(sessions) {
   ensureStorageDir();
-  fs.writeFileSync(SESSIONS_FILE, JSON.stringify(sessions, null, 2), 'utf-8');
+  fs.writeFileSync(SESSIONS_FILE, JSON.stringify(sessions, null, 2));
 }
 
 function saveSession(name, urls) {
   const sessions = readSessions();
-  sessions[name] = {
-    urls,
-    savedAt: new Date().toISOString()
-  };
+  const existing = sessions.findIndex((s) => s.name === name);
+  const session = { name, urls, savedAt: new Date().toISOString() };
+  if (existing >= 0) {
+    sessions[existing] = session;
+  } else {
+    sessions.push(session);
+  }
   writeSessions(sessions);
+  return session;
 }
 
 function getSession(name) {
   const sessions = readSessions();
-  return sessions[name] || null;
-}
-
-function deleteSession(name) {
-  const sessions = readSessions();
-  if (!sessions[name]) return false;
-  delete sessions[name];
-  writeSessions(sessions);
-  return true;
+  return sessions.find((s) => s.name === name) || null;
 }
 
 function listSessions() {
   return readSessions();
 }
 
-module.exports = { saveSession, getSession, deleteSession, listSessions };
+function deleteSession(name) {
+  const sessions = readSessions();
+  const index = sessions.findIndex((s) => s.name === name);
+  if (index === -1) return false;
+  sessions.splice(index, 1);
+  writeSessions(sessions);
+  return true;
+}
+
+module.exports = { ensureStorageDir, readSessions, writeSessions, saveSession, getSession, listSessions, deleteSession };
