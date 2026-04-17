@@ -1,0 +1,18 @@
+{
+  "name": "tabstack",
+  "version": "0.1.0",
+  "description": "Save and restore browser tab sessions from the terminal",
+  "main": "src/index.js",
+  "bin": {
+    "tabstack": "src/cli.js"
+  },
+  "scripts": {
+    "start": "node src/cli.js",
+    "test": "node --test"
+  },
+  "keywords": ["browser", "tabs", "session", "cli"],
+  "license": "MIT",
+  "dependencies": {
+    "commander": "^11.0.0"
+  }
+}
