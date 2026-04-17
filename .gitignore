@@ -1,0 +1,11 @@
+# Javascript
+
+node_modules/
+dist/
+.env
+*.log
+coverage/
+yarn-debug.log*
+.env.local
+.next/
+yarn-error.log*
