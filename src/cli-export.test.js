@@ -34,6 +34,16 @@ describe('export command', () => {
     expect(JSON.parse(written)).toHaveProperty('work');
   });
 
+  it('writes to the specified output file path', async () => {
+    storage.getSession.mockReturnValue({ urls: ['https://example.com'], createdAt: '2024-01-01' });
+    fs.writeFileSync.mockImplementation(() => {});
+
+    const program = makeProgram();
+    program.parse(['export', 'work', '-o', 'my-export.json'], { from: 'user' });
+
+    expect(fs.writeFileSync).toHaveBeenCalledWith('my-export.json', expect.any(String));
+  });
+
   it('exports all sessions when --all flag is used', async () => {
     storageMutations.listSessions.mockReturnValue([{ name: 'work' }, { name: 'personal' }]);
     storage.getSession.mockImplementation((name) => ({ urls: [], name }));
