@@ -1,32 +1,44 @@
-const { validateBrowser, restoreSession } = require('./restore');
-const { getSession } = require('./storage');
+import { Command } from 'commander';
+import { restoreSession, validateBrowser } from './restore.js';
+import { getSession } from './storage.js';
+import { getSupportedBrowsers } from './browser.js';
 
-function registerRestoreCommand(program) {
+/**
+ * Register the restore command on a Commander program.
+ * @param {import('commander').Command} program
+ */
+export function registerRestoreCommand(program) {
   program
     .command('restore <name>')
-    .description('restore a saved tab session in a browser')
-    .option('-b, --browser <browser>', 'browser to open tabs in', 'chrome')
+    .description('Restore a saved tab session in a browser')
+    .option(
+      '-b, --browser <browser>',
+      `browser to use (${getSupportedBrowsers().join(', ')})`,
+      'chrome'
+    )
     .action(async (name, options) => {
+      const { browser } = options;
+
+      const validationError = validateBrowser(browser);
+      if (validationError) {
+        console.error(`Error: ${validationError}`);
+        process.exit(1);
+      }
+
+      const session = await getSession(name);
+      if (!session) {
+        console.error(`Error: session "${name}" not found`);
+        process.exit(1);
+      }
+
       try {
-        const browserError = validateBrowser(options.browser);
-        if (browserError) {
-          console.error(`Error: ${browserError}`);
-          process.exit(1);
-        }
-
-        const session = getSession(name);
-        if (!session) {
-          console.error(`Error: session "${name}" not found`);
-          process.exit(1);
-        }
-
-        await restoreSession(session, options.browser);
-        console.log(`Restored session "${name}" (${session.urls.length} tabs) in ${options.browser}`);
+        await restoreSession(session, browser);
+        console.log(
+          `Restored session "${name}" with ${session.urls.length} tab(s) in ${browser}`
+        );
       } catch (err) {
-        console.error(`Error: ${err.message}`);
+        console.error(`Error restoring session: ${err.message}`);
         process.exit(1);
       }
     });
 }
-
-module.exports = { registerRestoreCommand };
