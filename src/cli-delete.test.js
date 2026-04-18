@@ -39,4 +39,19 @@ describe('delete command', () => {
     expect(storage.deleteSession).not.toHaveBeenCalled();
     mockExit.mockRestore();
   });
+
+  test('does not delete session without --force flag', async () => {
+    storage.listSessions.mockReturnValue(['work', 'personal']);
+    storage.deleteSession.mockImplementation(() => {});
+
+    const program = makeProgram();
+    const mockExit = jest.spyOn(process, 'exit').mockImplementation(() => { throw new Error('exit'); });
+
+    await expect(
+      program.parseAsync(['node', 'test', 'delete', 'work'])
+    ).rejects.toThrow('exit');
+
+    expect(storage.deleteSession).not.toHaveBeenCalled();
+    mockExit.mockRestore();
+  });
 });
