@@ -61,11 +61,14 @@ function deleteSession(name) {
 /**
  * Rename an existing session. Returns the updated session object,
  * or null if the original session wasn't found.
+ * Throws if newName is already taken by another session.
  */
 function renameSession(oldName, newName) {
   const sessions = readSessions();
   const index = sessions.findIndex((s) => s.name === oldName);
   if (index === -1) return null;
+  const conflict = sessions.findIndex((s) => s.name === newName);
+  if (conflict !== -1) throw new Error(`A session named "${newName}" already exists`);
   sessions[index] = { ...sessions[index], name: newName };
   writeSessions(sessions);
   return sessions[index];
