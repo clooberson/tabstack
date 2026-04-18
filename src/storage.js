@@ -58,4 +58,17 @@ function deleteSession(name) {
   return true;
 }
 
-module.exports = { ensureStorageDir, readSessions, writeSessions, saveSession, getSession, listSessions, deleteSession };
+/**
+ * Rename an existing session. Returns the updated session object,
+ * or null if the original session wasn't found.
+ */
+function renameSession(oldName, newName) {
+  const sessions = readSessions();
+  const index = sessions.findIndex((s) => s.name === oldName);
+  if (index === -1) return null;
+  sessions[index] = { ...sessions[index], name: newName };
+  writeSessions(sessions);
+  return sessions[index];
+}
+
+module.exports = { ensureStorageDir, readSessions, writeSessions, saveSession, getSession, listSessions, deleteSession, renameSession };
