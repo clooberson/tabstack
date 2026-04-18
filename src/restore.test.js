@@ -1,44 +1,42 @@
-const { restoreSession } = require('./restore');
-const storage = require('./storage');
-const browser = require('./browser');
-
-jest.mock('./storage');
 jest.mock('./browser');
 
-describe('restoreSession', () => {
+const { validateBrowser, restoreSession } = require('./restore');
+const { openUrls, getSupportedBrowsers } = require('./browser');
+
+describe('validateBrowser', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
-    browser.getSupportedBrowsers.mockReturnValue(['chrome', 'firefox', 'brave']);
+    getSupportedBrowsers.mockReturnValue(['chrome', 'firefox', 'edge']);
   });
 
-  it('throws if session not found', () => {
-    storage.getSession.mockReturnValue(null);
-    expect(() => restoreSession('ghost')).toThrow('Session "ghost" not found.');
+  test('returns null for supported browser', () => {
+    expect(validateBrowser('chrome')).toBeNull();
   });
 
-  it('opens urls with default browser', () => {
-    storage.getSession.mockReturnValue({ name: 'work', urls: ['https://a.com', 'https://b.com'] });
-    browser.openUrls.mockImplementation(() => {});
-    const result = restoreSession('work');
-    expect(browser.openUrls).toHaveBeenCalledWith(['https://a.com', 'https://b.com'], 'chrome');
-    expect(result).toHaveLength(2);
+  test('returns error string for unsupported browser', () => {
+    const result = validateBrowser('safari');
+    expect(result).toMatch(/safari/);
+    expect(result).toMatch(/unsupported/i);
+  });
+});
+
+describe('restoreSession', () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  test('calls openUrls with session urls and browser', async () => {
+    openUrls.mockResolvedValue();
+    const session = { name: 'test', urls: ['https://example.com', 'https://github.com'] };
+    await restoreSession(session, 'firefox');
+    expect(openUrls).toHaveBeenCalledWith(['https://example.com', 'https://github.com'], 'firefox');
   });
 
-  it('respects dryRun option and does not call openUrls', () => {
-    storage.getSession.mockReturnValue({ name: 'work', urls: ['https://a.com'] });
-    restoreSession('work', { dryRun: true });
-    expect(browser.openUrls).not.toHaveBeenCalled();
+  test('throws if session has no urls', async () => {
+    const session = { name: 'empty', urls: [] };
+    await expect(restoreSession(session, 'chrome')).rejects.toThrow(/no urls/i);
   });
 
-  it('throws for unsupported browser', () => {
-    storage.getSession.mockReturnValue({ name: 'work', urls: ['https://a.com'] });
-    expect(() => restoreSession('work', { browser: 'ie' })).toThrow('Unknown browser "ie"');
-  });
-
-  it('handles session with no urls gracefully', () => {
-    storage.getSession.mockReturnValue({ name: 'empty', urls: [] });
-    const result = restoreSession('empty');
-    expect(result).toEqual([]);
-    expect(browser.openUrls).not.toHaveBeenCalled();
+  test('propagates openUrls errors', async () => {
+    openUrls.mockRejectedValue(new Error('browser not found'));
+    const session = { name: 'test', urls: ['https://a.com'] };
+    await expect(restoreSession(session, 'chrome')).rejects.toThrow('browser not found');
   });
 });
