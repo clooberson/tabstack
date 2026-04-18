@@ -39,6 +39,17 @@ describe('pin command', () => {
     expect(written.work.pinned).toBeUndefined();
   });
 
+  it('does not modify other sessions when pinning', async () => {
+    readSessions.mockResolvedValue({
+      work: { urls: ['https://example.com'] },
+      personal: { urls: ['https://news.com'] },
+    });
+    const program = makeProgram();
+    await program.parseAsync(['node', 'tabstack', 'pin', 'work']);
+    const written = writeSessions.mock.calls[0][0];
+    expect(written.personal).toEqual({ urls: ['https://news.com'] });
+  });
+
   it('exits with error if session not found', async () => {
     readSessions.mockResolvedValue({});
     const program = makeProgram();
