@@ -4,34 +4,34 @@ function countSessions(sessions) {
   const names = Object.keys(sessions);
   const total = names.length;
   const totalUrls = names.reduce((sum, name) => sum + (sessions[name].urls || []).length, 0);
-  const archived = names.filter(n => sessions[n].archived).length;
-  const favorites = names.filter(n => sessions[n].favorite).length;
-  const tagged = names.filter(n => sessions[n].tags && sessions[n].tags.length > 0).length;
-  return { total, totalUrls, archived, favorites, tagged };
+  const tagged = names.filter(name => sessions[name].tags && sessions[name].tags.length > 0).length;
+  const pinned = names.filter(name => sessions[name].pinned).length;
+  const archived = names.filter(name => sessions[name].archived).length;
+  const favorites = names.filter(name => sessions[name].favorite).length;
+
+  return { total, totalUrls, tagged, pinned, archived, favorites };
 }
 
 function registerCountCommand(program) {
   program
     .command('count')
-    .description('show count of saved sessions and urls')
-    .option('--json', 'output as json')
+    .description('show counts of sessions and their properties')
+    .option('--json', 'output as JSON')
     .action(async (options) => {
-      try {
-        const sessions = await readSessions();
-        const counts = countSessions(sessions);
-        if (options.json) {
-          console.log(JSON.stringify(counts, null, 2));
-        } else {
-          console.log(`Sessions:   ${counts.total}`);
-          console.log(`URLs:       ${counts.totalUrls}`);
-          console.log(`Archived:   ${counts.archived}`);
-          console.log(`Favorites:  ${counts.favorites}`);
-          console.log(`Tagged:     ${counts.tagged}`);
-        }
-      } catch (err) {
-        console.error('Error counting sessions:', err.message);
-        process.exit(1);
+      const sessions = await readSessions();
+      const counts = countSessions(sessions);
+
+      if (options.json) {
+        console.log(JSON.stringify(counts, null, 2));
+        return;
       }
+
+      console.log(`Total sessions:  ${counts.total}`);
+      console.log(`Total URLs:      ${counts.totalUrls}`);
+      console.log(`Tagged:          ${counts.tagged}`);
+      console.log(`Pinned:          ${counts.pinned}`);
+      console.log(`Archived:        ${counts.archived}`);
+      console.log(`Favorites:       ${counts.favorites}`);
     });
 }
 

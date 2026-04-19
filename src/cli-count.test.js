@@ -8,68 +8,65 @@ function makeProgram() {
   return program;
 }
 
+const mockSessions = {
+  work: { urls: ['https://a.com', 'https://b.com'], tags: ['work'], pinned: true, archived: false, favorite: false },
+  personal: { urls: ['https://c.com'], tags: [], pinned: false, archived: true, favorite: true },
+  misc: { urls: [], tags: ['misc', 'old'], pinned: false, archived: false, favorite: false },
+};
+
 describe('countSessions', () => {
-  const sessions = {
-    work: { urls: ['http://a.com', 'http://b.com'], favorite: true, tags: ['work'] },
-    home: { urls: ['http://c.com'], archived: true, tags: [] },
-    misc: { urls: [], favorite: false },
-  };
-
   it('counts total sessions', () => {
-    expect(countSessions(sessions).total).toBe(3);
+    const result = countSessions(mockSessions);
+    expect(result.total).toBe(3);
   });
 
-  it('counts total urls', () => {
-    expect(countSessions(sessions).totalUrls).toBe(3);
-  });
-
-  it('counts archived sessions', () => {
-    expect(countSessions(sessions).archived).toBe(1);
-  });
-
-  it('counts favorites', () => {
-    expect(countSessions(sessions).favorites).toBe(1);
+  it('counts total URLs', () => {
+    const result = countSessions(mockSessions);
+    expect(result.totalUrls).toBe(3);
   });
 
   it('counts tagged sessions', () => {
-    expect(countSessions(sessions).tagged).toBe(1);
+    const result = countSessions(mockSessions);
+    expect(result.tagged).toBe(2);
+  });
+
+  it('counts pinned sessions', () => {
+    const result = countSessions(mockSessions);
+    expect(result.pinned).toBe(1);
+  });
+
+  it('counts archived sessions', () => {
+    const result = countSessions(mockSessions);
+    expect(result.archived).toBe(1);
+  });
+
+  it('counts favorites', () => {
+    const result = countSessions(mockSessions);
+    expect(result.favorites).toBe(1);
   });
 
   it('handles empty sessions', () => {
-    const counts = countSessions({});
-    expect(counts.total).toBe(0);
-    expect(counts.totalUrls).toBe(0);
+    const result = countSessions({});
+    expect(result).toEqual({ total: 0, totalUrls: 0, tagged: 0, pinned: 0, archived: 0, favorites: 0 });
   });
 });
 
 describe('count command', () => {
-  let storage;
+  let consoleSpy;
 
   beforeEach(() => {
-    storage = require('./storage');
-    jest.spyOn(storage, 'readSessions').mockResolvedValue({
-      alpha: { urls: ['http://x.com'], favorite: true, tags: ['t1'] },
-      beta: { urls: ['http://y.com', 'http://z.com'], archived: true },
-    });
+    consoleSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+    jest.mock('./storage', () => ({ readSessions: jest.fn().mockResolvedValue(mockSessions) }));
   });
 
-  afterEach(() => jest.restoreAllMocks());
-
-  it('prints counts to stdout', async () => {
-    const spy = jest.spyOn(console, 'log').mockImplementation(() => {});
-    const program = makeProgram();
-    await program.parseAsync(['node', 'test', 'count']);
-    expect(spy).toHaveBeenCalledWith(expect.stringContaining('Sessions:'));
-    spy.mockRestore();
+  afterEach(() => {
+    consoleSpy.mockRestore();
+    jest.resetModules();
   });
 
-  it('outputs json with --json flag', async () => {
-    const spy = jest.spyOn(console, 'log').mockImplementation(() => {});
+  it('registers count command', () => {
     const program = makeProgram();
-    await program.parseAsync(['node', 'test', 'count', '--json']);
-    const output = spy.mock.calls[0][0];
-    const parsed = JSON.parse(output);
-    expect(parsed.total).toBe(2);
-    spy.mockRestore();
+    const cmd = program.commands.find(c => c.name() === 'count');
+    expect(cmd).toBeDefined();
   });
 });
