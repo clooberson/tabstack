@@ -1,54 +1,73 @@
-const { makeSession } = require('./cli-history.test-helpers') // will define inline
-const { addToHistory, getHistory, clearHistory } = require('./cli-history-handler');
-
-jest.mock('./storage');
+const { Command } = require('commander');
+const { registerHistoryCommand, recordHistory, getHistory, clearHistory } = require('./cli-history-handler');
 const { readSessions, writeSessions } = require('./storage');
 
-function makeSession(overrides = {}) {
-  return { _history: [], ...overrides };
+jest.mock('./storage');
+
+function makeProgram() {
+  const program = new Command();
+  program.exitOverride();
+  registerHistoryCommand(program);
+  return program;
 }
 
-beforeEach(() => jest.clearAllMocks());
+beforeEach(() => {
+  readSessions.mockReturnValue({});
+  writeSessions.mockImplementation(() => {});
+});
 
-test('addToHistory adds entry to front', async () => {
-  const data = makeSession();
-  readSessions.mockResolvedValue(data);
-  writeSessions.mockResolvedValue();
-  await addToHistory('work');
-  expect(writeSessions).toHaveBeenCalledWith(expect.objectContaining({
-    _history: expect.arrayContaining([expect.objectContaining({ name: 'work' })])
-  }));
+test('recordHistory adds entry', () => {
+  readSessions.mockReturnValue({ _history: [] });
+  recordHistory('work', 'save');
   const written = writeSessions.mock.calls[0][0];
-  expect(written._history[0].name).toBe('work');
+  expect(written._history[0].sessionName).toBe('work');
+  expect(written._history[0].action).toBe('save');
 });
 
-test('addToHistory deduplicates entries', async () => {
-  const data = makeSession({ _history: [{ name: 'work', accessedAt: '2024-01-01T00:00:00.000Z' }] });
-  readSessions.mockResolvedValue(data);
-  writeSessions.mockResolvedValue();
-  await addToHistory('work');
+test('getHistory returns entries up to limit', () => {
+  readSessions.mockReturnValue({
+    _history: [
+      { sessionName: 'a', action: 'save', timestamp: '2024-01-01T00:00:00.000Z' },
+      { sessionName: 'b', action: 'restore', timestamp: '2024-01-02T00:00:00.000Z' },
+    ],
+  });
+  const result = getHistory(1);
+  expect(result).toHaveLength(1);
+  expect(result[0].sessionName).toBe('a');
+});
+
+test('clearHistory empties history', () => {
+  readSessions.mockReturnValue({ _history: [{ sessionName: 'x', action: 'save', timestamp: '' }] });
+  clearHistory();
   const written = writeSessions.mock.calls[0][0];
-  expect(written._history.filter(e => e.name === 'work').length).toBe(1);
+  expect(written._history).toHaveLength(0);
 });
 
-test('getHistory returns limited entries', async () => {
-  const history = Array.from({ length: 20 }, (_, i) => ({ name: `s${i}`, accessedAt: new Date().toISOString() }));
-  readSessions.mockResolvedValue({ _history: history });
-  const result = await getHistory(5);
-  expect(result.length).toBe(5);
+test('history command prints entries', () => {
+  readSessions.mockReturnValue({
+    _history: [{ sessionName: 'work', action: 'save', timestamp: '2024-01-01T00:00:00.000Z' }],
+  });
+  const spy = jest.spyOn(console, 'log').mockImplementation(() => {});
+  const program = makeProgram();
+  program.parse(['node', 'test', 'history']);
+  expect(spy).toHaveBeenCalledWith(expect.stringContaining('work'));
+  spy.mockRestore();
 });
 
-test('clearHistory empties history', async () => {
-  const data = makeSession({ _history: [{ name: 'a', accessedAt: '' }] });
-  readSessions.mockResolvedValue(data);
-  writeSessions.mockResolvedValue();
-  await clearHistory();
-  const written = writeSessions.mock.calls[0][0];
-  expect(written._history).toEqual([]);
+test('history --clear clears and confirms', () => {
+  readSessions.mockReturnValue({ _history: [] });
+  const spy = jest.spyOn(console, 'log').mockImplementation(() => {});
+  const program = makeProgram();
+  program.parse(['node', 'test', 'history', '--clear']);
+  expect(spy).toHaveBeenCalledWith('History cleared.');
+  spy.mockRestore();
 });
 
-test('getHistory returns empty array when no history', async () => {
-  readSessions.mockResolvedValue({});
-  const result = await getHistory();
-  expect(result).toEqual([]);
+test('history shows no history message when empty', () => {
+  readSessions.mockReturnValue({ _history: [] });
+  const spy = jest.spyOn(console, 'log').mockImplementation(() => {});
+  const program = makeProgram();
+  program.parse(['node', 'test', 'history']);
+  expect(spy).toHaveBeenCalledWith('No history found.');
+  spy.mockRestore();
 });

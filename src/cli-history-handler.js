@@ -2,52 +2,58 @@ const { readSessions, writeSessions } = require('./storage');
 
 const MAX_HISTORY = 50;
 
-async function addToHistory(sessionName) {
-  const data = await readSessions();
+function recordHistory(sessionName, action, meta = {}) {
+  const data = readSessions();
   if (!data._history) data._history = [];
-  data._history = data._history.filter(e => e.name !== sessionName);
-  data._history.unshift({ name: sessionName, accessedAt: new Date().toISOString() });
-  if (data._history.length > MAX_HISTORY) data._history = data._history.slice(0, MAX_HISTORY);
-  await writeSessions(data);
+  data._history.unshift({
+    sessionName,
+    action,
+    timestamp: new Date().toISOString(),
+    ...meta,
+  });
+  if (data._history.length > MAX_HISTORY) {
+    data._history = data._history.slice(0, MAX_HISTORY);
+  }
+  writeSessions(data);
 }
 
-async function getHistory(limit = 10) {
-  const data = await readSessions();
+function getHistory(limit = 20) {
+  const data = readSessions();
   return (data._history || []).slice(0, limit);
 }
 
-async function clearHistory() {
-  const data = await readSessions();
+function clearHistory() {
+  const data = readSessions();
   data._history = [];
-  await writeSessions(data);
+  writeSessions(data);
 }
 
 function registerHistoryCommand(program) {
-  const cmd = program.command('history').description('View or manage session access history');
-
-  cmd
-    .command('list')
-    .description('List recently accessed sessions')
-    .option('-n, --limit <number>', 'Number of entries to show', '10')
-    .action(async (opts) => {
+  program
+    .command('history')
+    .description('Show recent session activity history')
+    .option('-n, --limit <number>', 'Number of entries to show', '20')
+    .option('--clear', 'Clear history')
+    .action((opts) => {
+      if (opts.clear) {
+        clearHistory();
+        console.log('History cleared.');
+        return;
+      }
       const limit = parseInt(opts.limit, 10);
-      const history = await getHistory(limit);
-      if (!history.length) {
+      const entries = getHistory(limit);
+      if (entries.length === 0) {
         console.log('No history found.');
         return;
       }
-      history.forEach((e, i) => {
-        console.log(`${i + 1}. ${e.name} — ${new Date(e.accessedAt).toLocaleString()}`);
+      entries.forEach((e) => {
+        const meta = Object.keys(e)
+          .filter((k) => !['sessionName', 'action', 'timestamp'].includes(k))
+          .map((k) => `${k}=${e[k]}`)
+          .join(' ');
+        console.log(`[${e.timestamp}] ${e.action} "${e.sessionName}"${meta ? ' ' + meta : ''}`);
       });
-    });
-
-  cmd
-    .command('clear')
-    .description('Clear session access history')
-    .action(async () => {
-      await clearHistory();
-      console.log('History cleared.');
     });
 }
 
-module.exports = { addToHistory, getHistory, clearHistory, registerHistoryCommand };
+module.exports = { recordHistory, getHistory, clearHistory, registerHistoryCommand };
