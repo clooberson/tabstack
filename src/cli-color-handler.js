@@ -1,44 +1,47 @@
-const { getSession, writeSessions, readSessions } = require('./storage');
+const { readSessions, writeSessions } = require('./storage');
 
-const VALID_COLORS = ['red', 'green', 'blue', 'yellow', 'purple', 'orange', 'pink', 'cyan', 'none'];
+const VALID_COLORS = ['red', 'green', 'blue', 'yellow', 'purple', 'orange', 'pink', 'cyan', 'gray', 'none'];
 
-function setColor(sessions, name, color) {
-  const session = sessions[name];
-  if (!session) throw new Error(`Session "${name}" not found`);
+function setColor(sessionName, color) {
   if (!VALID_COLORS.includes(color)) {
-    throw new Error(`Invalid color "${color}". Valid colors: ${VALID_COLORS.join(', ')}`);
+    throw new Error(`Invalid color '${color}'. Valid colors: ${VALID_COLORS.join(', ')}`);
+  }
+  const sessions = readSessions();
+  if (!sessions[sessionName]) {
+    throw new Error(`Session '${sessionName}' not found`);
   }
   if (color === 'none') {
-    delete session.color;
+    delete sessions[sessionName].color;
   } else {
-    session.color = color;
+    sessions[sessionName].color = color;
   }
-  return sessions;
+  writeSessions(sessions);
+  return color;
 }
 
-function getColor(sessions, name) {
-  const session = sessions[name];
-  if (!session) throw new Error(`Session "${name}" not found`);
-  return session.color || null;
+function getColor(sessionName) {
+  const sessions = readSessions();
+  if (!sessions[sessionName]) {
+    throw new Error(`Session '${sessionName}' not found`);
+  }
+  return sessions[sessionName].color || null;
 }
 
 function registerColorCommand(program) {
   const color = program
     .command('color')
-    .description('manage session label colors');
+    .description('Manage session colors for visual organization');
 
   color
     .command('set <session> <color>')
-    .description(`set a color label for a session (${VALID_COLORS.join(', ')})`)
-    .action(async (name, colorValue) => {
+    .description(`Set a color label for a session (${VALID_COLORS.join(', ')})`)
+    .action((session, colorValue) => {
       try {
-        const sessions = await readSessions();
-        const updated = setColor(sessions, name, colorValue);
-        await writeSessions(updated);
+        setColor(session, colorValue);
         if (colorValue === 'none') {
-          console.log(`Color removed from session "${name}"`);
+          console.log(`Cleared color for session '${session}'`);
         } else {
-          console.log(`Session "${name}" labeled with color "${colorValue}"`);
+          console.log(`Set color '${colorValue}' for session '${session}'`);
         }
       } catch (err) {
         console.error(err.message);
@@ -48,15 +51,14 @@ function registerColorCommand(program) {
 
   color
     .command('get <session>')
-    .description('get the color label of a session')
-    .action(async (name) => {
+    .description('Get the color label for a session')
+    .action((session) => {
       try {
-        const sessions = await readSessions();
-        const c = getColor(sessions, name);
+        const c = getColor(session);
         if (c) {
-          console.log(`Session "${name}" color: ${c}`);
+          console.log(c);
         } else {
-          console.log(`Session "${name}" has no color label`);
+          console.log(`No color set for session '${session}'`);
         }
       } catch (err) {
         console.error(err.message);
@@ -66,15 +68,17 @@ function registerColorCommand(program) {
 
   color
     .command('list')
-    .description('list all sessions with color labels')
-    .action(async () => {
-      const sessions = await readSessions();
-      const colored = Object.entries(sessions).filter(([, s]) => s.color);
-      if (colored.length === 0) {
-        console.log('No sessions have color labels.');
-      } else {
-        colored.forEach(([name, s]) => console.log(`${name}: ${s.color}`));
+    .description('List all sessions with their colors')
+    .action(() => {
+      const sessions = readSessions();
+      const entries = Object.entries(sessions).filter(([, s]) => s.color);
+      if (entries.length === 0) {
+        console.log('No sessions have colors set.');
+        return;
       }
+      entries.forEach(([name, s]) => {
+        console.log(`${name}: ${s.color}`);
+      });
     });
 }
 

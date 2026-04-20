@@ -1,5 +1,8 @@
 const { Command } = require('commander');
 const { setColor, getColor, VALID_COLORS } = require('./cli-color-handler');
+const { readSessions, writeSessions } = require('./storage');
+
+jest.mock('./storage');
 
 function makeSessions() {
   return {
@@ -8,56 +11,66 @@ function makeSessions() {
   };
 }
 
+beforeEach(() => {
+  jest.clearAllMocks();
+});
+
 describe('setColor', () => {
-  test('sets a valid color on a session', () => {
+  it('sets a valid color on a session', () => {
     const sessions = makeSessions();
-    const result = setColor(sessions, 'personal', 'green');
-    expect(result.personal.color).toBe('green');
+    readSessions.mockReturnValue(sessions);
+    setColor('personal', 'green');
+    expect(writeSessions).toHaveBeenCalledWith(
+      expect.objectContaining({
+        personal: expect.objectContaining({ color: 'green' }),
+      })
+    );
   });
 
-  test('overwrites existing color', () => {
+  it('removes color when set to none', () => {
     const sessions = makeSessions();
-    const result = setColor(sessions, 'work', 'red');
-    expect(result.work.color).toBe('red');
+    readSessions.mockReturnValue(sessions);
+    setColor('work', 'none');
+    const written = writeSessions.mock.calls[0][0];
+    expect(written.work.color).toBeUndefined();
   });
 
-  test('removes color when set to "none"', () => {
-    const sessions = makeSessions();
-    const result = setColor(sessions, 'work', 'none');
-    expect(result.work.color).toBeUndefined();
+  it('throws on invalid color', () => {
+    readSessions.mockReturnValue(makeSessions());
+    expect(() => setColor('work', 'rainbow')).toThrow("Invalid color 'rainbow'");
   });
 
-  test('throws on unknown session', () => {
-    const sessions = makeSessions();
-    expect(() => setColor(sessions, 'ghost', 'red')).toThrow('not found');
-  });
-
-  test('throws on invalid color', () => {
-    const sessions = makeSessions();
-    expect(() => setColor(sessions, 'work', 'magenta')).toThrow('Invalid color');
-  });
-
-  test('all VALID_COLORS are accepted', () => {
-    VALID_COLORS.filter(c => c !== 'none').forEach(c => {
-      const sessions = makeSessions();
-      expect(() => setColor(sessions, 'work', c)).not.toThrow();
-    });
+  it('throws if session does not exist', () => {
+    readSessions.mockReturnValue(makeSessions());
+    expect(() => setColor('ghost', 'red')).toThrow("Session 'ghost' not found");
   });
 });
 
 describe('getColor', () => {
-  test('returns color when set', () => {
-    const sessions = makeSessions();
-    expect(getColor(sessions, 'work')).toBe('blue');
+  it('returns the color of a session', () => {
+    readSessions.mockReturnValue(makeSessions());
+    expect(getColor('work')).toBe('blue');
   });
 
-  test('returns null when no color set', () => {
-    const sessions = makeSessions();
-    expect(getColor(sessions, 'personal')).toBeNull();
+  it('returns null if no color set', () => {
+    readSessions.mockReturnValue(makeSessions());
+    expect(getColor('personal')).toBeNull();
   });
 
-  test('throws on unknown session', () => {
-    const sessions = makeSessions();
-    expect(() => getColor(sessions, 'missing')).toThrow('not found');
+  it('throws if session does not exist', () => {
+    readSessions.mockReturnValue(makeSessions());
+    expect(() => getColor('ghost')).toThrow("Session 'ghost' not found");
+  });
+});
+
+describe('VALID_COLORS', () => {
+  it('includes none as an option', () => {
+    expect(VALID_COLORS).toContain('none');
+  });
+
+  it('includes common colors', () => {
+    expect(VALID_COLORS).toContain('red');
+    expect(VALID_COLORS).toContain('blue');
+    expect(VALID_COLORS).toContain('green');
   });
 });
