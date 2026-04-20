@@ -43,6 +43,16 @@ describe('diffSessions', () => {
     expect(result.onlyInB).toHaveLength(0);
     expect(result.inBoth).toHaveLength(1);
   });
+
+  it('handles sessions with no urls', () => {
+    storage.getSession
+      .mockReturnValueOnce({ urls: [] })
+      .mockReturnValueOnce({ urls: [] });
+    const result = diffSessions('empty1', 'empty2');
+    expect(result.onlyInA).toHaveLength(0);
+    expect(result.onlyInB).toHaveLength(0);
+    expect(result.inBoth).toHaveLength(0);
+  });
 });
 
 describe('diff command', () => {
@@ -52,5 +62,12 @@ describe('diff command', () => {
       .mockReturnValueOnce({ urls: ['http://b.com'] });
     const program = makeProgram();
     expect(() => program.parse(['diff', 'work', 'personal'], { from: 'user' })).not.toThrow();
+  });
+
+  it('runs without error when sessions are identical', () => {
+    const urls = ['http://same.com'];
+    storage.getSession.mockReturnValue({ urls });
+    const program = makeProgram();
+    expect(() => program.parse(['diff', 'a', 'b'], { from: 'user' })).not.toThrow();
   });
 });
