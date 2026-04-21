@@ -5,6 +5,7 @@ export function registerSearchCommand(program) {
     .command('search <query>')
     .description('search for tabs across all sessions')
     .option('-s, --session <name>', 'limit search to a specific session')
+    .option('-t, --title', 'search by tab title instead of URL')
     .action(async (query, options) => {
       const sessions = await readSessions();
       const sessionNames = options.session
