@@ -1,14 +1,15 @@
 const { readSessions, writeSessions } = require('./storage');
 
+const VALID_VISIBILITIES = ['public', 'private', 'hidden'];
+
 function setVisibility(sessions, name, visibility) {
+  if (!VALID_VISIBILITIES.includes(visibility)) {
+    throw new Error(`Invalid visibility "${visibility}". Must be one of: ${VALID_VISIBILITIES.join(', ')}`);
+  }
   const session = sessions[name];
   if (!session) throw new Error(`Session "${name}" not found`);
-  const valid = ['public', 'private', 'hidden'];
-  if (!valid.includes(visibility)) {
-    throw new Error(`Invalid visibility "${visibility}". Must be one of: ${valid.join(', ')}`);
-  }
   session.visibility = visibility;
-  return session;
+  return sessions;
 }
 
 function getVisibility(sessions, name) {
@@ -18,43 +19,63 @@ function getVisibility(sessions, name) {
 }
 
 function listByVisibility(sessions, visibility) {
+  if (!VALID_VISIBILITIES.includes(visibility)) {
+    throw new Error(`Invalid visibility "${visibility}". Must be one of: ${VALID_VISIBILITIES.join(', ')}`);
+  }
   return Object.entries(sessions)
     .filter(([, s]) => (s.visibility || 'public') === visibility)
-    .map(([name, s]) => ({ name, ...s }));
+    .map(([name]) => name);
 }
 
 function registerVisibilityCommand(program) {
-  const cmd = program.command('visibility').description('Manage session visibility');
+  const vis = program
+    .command('visibility')
+    .description('manage session visibility');
 
-  cmd
+  vis
     .command('set <session> <visibility>')
-    .description('Set visibility of a session (public, private, hidden)')
+    .description('set visibility for a session (public, private, hidden)')
     .action(async (name, visibility) => {
-      const sessions = await readSessions();
-      setVisibility(sessions, name, visibility);
-      await writeSessions(sessions);
-      console.log(`Session "${name}" visibility set to "${visibility}"`);
+      try {
+        const sessions = await readSessions();
+        const updated = setVisibility(sessions, name, visibility);
+        await writeSessions(updated);
+        console.log(`Set visibility of "${name}" to "${visibility}"`);
+      } catch (err) {
+        console.error(err.message);
+        process.exit(1);
+      }
     });
 
-  cmd
+  vis
     .command('get <session>')
-    .description('Get visibility of a session')
+    .description('get visibility of a session')
     .action(async (name) => {
-      const sessions = await readSessions();
-      const v = getVisibility(sessions, name);
-      console.log(`${name}: ${v}`);
+      try {
+        const sessions = await readSessions();
+        const v = getVisibility(sessions, name);
+        console.log(`${name}: ${v}`);
+      } catch (err) {
+        console.error(err.message);
+        process.exit(1);
+      }
     });
 
-  cmd
+  vis
     .command('list <visibility>')
-    .description('List sessions with a given visibility')
+    .description('list sessions by visibility')
     .action(async (visibility) => {
-      const sessions = await readSessions();
-      const results = listByVisibility(sessions, visibility);
-      if (results.length === 0) {
-        console.log(`No sessions with visibility "${visibility}"`);
-      } else {
-        results.forEach(s => console.log(`- ${s.name}`));
+      try {
+        const sessions = await readSessions();
+        const names = listByVisibility(sessions, visibility);
+        if (names.length === 0) {
+          console.log(`No sessions with visibility "${visibility}"`);
+        } else {
+          names.forEach((n) => console.log(n));
+        }
+      } catch (err) {
+        console.error(err.message);
+        process.exit(1);
       }
     });
 }
