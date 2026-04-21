@@ -1,72 +1,68 @@
-const { setAccessLevel, getAccessLevel, listByAccess } = require('./cli-access-handler');
+const { Command } = require('commander');
+const { registerAccessCommand } = require('./cli-access-handler');
+const storage = require('./storage');
 
-function makeSessions() {
-  return {
-    work: { urls: ['https://github.com'], access: 'private' },
-    personal: { urls: ['https://reddit.com'] },
-    shared: { urls: ['https://docs.google.com'], access: 'restricted' },
-  };
+jest.mock('./storage');
+
+function makeProgram() {
+  const program = new Command();
+  program.exitOverride();
+  registerAccessCommand(program);
+  return program;
 }
 
-describe('setAccessLevel', () => {
-  it('sets a valid access level', () => {
-    const sessions = makeSessions();
-    setAccessLevel(sessions, 'personal', 'private');
-    expect(sessions.personal.access).toBe('private');
+const baseSessions = {
+  alpha: { urls: ['https://example.com'], accessLevel: 'private' },
+  beta: { urls: ['https://test.com'] },
+};
+
+beforeEach(() => {
+  jest.clearAllMocks();
+  storage.readSessions.mockResolvedValue({ ...baseSessions });
+  storage.writeSessions.mockResolvedValue();
+});
+
+describe('access set', () => {
+  test('sets access level and writes sessions', async () => {
+    const program = makeProgram();
+    await program.parseAsync(['node', 'test', 'access', 'set', 'beta', 'restricted']);
+    expect(storage.writeSessions).toHaveBeenCalledWith(
+      expect.objectContaining({ beta: expect.objectContaining({ accessLevel: 'restricted' }) })
+    );
   });
 
-  it('throws for unknown session', () => {
-    const sessions = makeSessions();
-    expect(() => setAccessLevel(sessions, 'ghost', 'public')).toThrow('not found');
-  });
-
-  it('throws for invalid level', () => {
-    const sessions = makeSessions();
-    expect(() => setAccessLevel(sessions, 'work', 'admin')).toThrow('Invalid access level');
-  });
-
-  it('overwrites existing access level', () => {
-    const sessions = makeSessions();
-    setAccessLevel(sessions, 'work', 'public');
-    expect(sessions.work.access).toBe('public');
+  test('exits on invalid level', async () => {
+    const program = makeProgram();
+    const mockExit = jest.spyOn(process, 'exit').mockImplementation(() => { throw new Error('exit'); });
+    await expect(program.parseAsync(['node', 'test', 'access', 'set', 'alpha', 'top-secret'])).rejects.toThrow();
+    mockExit.mockRestore();
   });
 });
 
-describe('getAccessLevel', () => {
-  it('returns the access level if set', () => {
-    const sessions = makeSessions();
-    expect(getAccessLevel(sessions, 'work')).toBe('private');
-  });
-
-  it('defaults to public if not set', () => {
-    const sessions = makeSessions();
-    expect(getAccessLevel(sessions, 'personal')).toBe('public');
-  });
-
-  it('throws for unknown session', () => {
-    const sessions = makeSessions();
-    expect(() => getAccessLevel(sessions, 'nope')).toThrow('not found');
+describe('access get', () => {
+  test('prints access level of session', async () => {
+    const spy = jest.spyOn(console, 'log').mockImplementation(() => {});
+    const program = makeProgram();
+    await program.parseAsync(['node', 'test', 'access', 'get', 'alpha']);
+    expect(spy).toHaveBeenCalledWith('alpha: private');
+    spy.mockRestore();
   });
 });
 
-describe('listByAccess', () => {
-  it('lists sessions with matching access level', () => {
-    const sessions = makeSessions();
-    expect(listByAccess(sessions, 'private')).toEqual(['work']);
+describe('access list', () => {
+  test('lists sessions by access level', async () => {
+    const spy = jest.spyOn(console, 'log').mockImplementation(() => {});
+    const program = makeProgram();
+    await program.parseAsync(['node', 'test', 'access', 'list', 'public']);
+    expect(spy).toHaveBeenCalledWith('beta');
+    spy.mockRestore();
   });
 
-  it('defaults unset sessions to public', () => {
-    const sessions = makeSessions();
-    expect(listByAccess(sessions, 'public')).toEqual(['personal']);
-  });
-
-  it('returns empty array when no matches', () => {
-    const sessions = makeSessions();
-    expect(listByAccess(sessions, 'restricted')).toEqual(['shared']);
-  });
-
-  it('throws for invalid level', () => {
-    const sessions = makeSessions();
-    expect(() => listByAccess(sessions, 'superuser')).toThrow('Invalid access level');
+  test('prints message if none found', async () => {
+    const spy = jest.spyOn(console, 'log').mockImplementation(() => {});
+    const program = makeProgram();
+    await program.parseAsync(['node', 'test', 'access', 'list', 'restricted']);
+    expect(spy).toHaveBeenCalledWith(expect.stringContaining('No sessions'));
+    spy.mockRestore();
   });
 });
