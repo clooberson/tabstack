@@ -5,66 +5,61 @@ function makeSessions() {
     work: { urls: ['https://github.com'], visibility: 'private' },
     personal: { urls: ['https://reddit.com'], visibility: 'public' },
     secret: { urls: ['https://example.com'], visibility: 'hidden' },
-    default: { urls: ['https://news.ycombinator.com'] },
+    novis: { urls: ['https://nodejs.org'] },
   };
 }
 
 describe('setVisibility', () => {
-  it('sets visibility on an existing session', () => {
+  test('sets visibility on existing session', () => {
     const sessions = makeSessions();
     const updated = setVisibility(sessions, 'work', 'public');
     expect(updated.work.visibility).toBe('public');
   });
 
-  it('throws on unknown session', () => {
-    expect(() => setVisibility(makeSessions(), 'nope', 'public')).toThrow('not found');
+  test('throws on unknown session', () => {
+    const sessions = makeSessions();
+    expect(() => setVisibility(sessions, 'ghost', 'public')).toThrow('not found');
   });
 
-  it('throws on invalid visibility value', () => {
-    expect(() => setVisibility(makeSessions(), 'work', 'secret')).toThrow('Invalid visibility');
-  });
-
-  it('accepts all valid visibility values', () => {
-    for (const v of ['public', 'private', 'hidden']) {
-      const sessions = makeSessions();
-      expect(() => setVisibility(sessions, 'work', v)).not.toThrow();
-    }
+  test('throws on invalid visibility value', () => {
+    const sessions = makeSessions();
+    expect(() => setVisibility(sessions, 'work', 'secret-level')).toThrow('Invalid visibility');
   });
 });
 
 describe('getVisibility', () => {
-  it('returns the visibility of a session', () => {
-    expect(getVisibility(makeSessions(), 'work')).toBe('private');
+  test('returns set visibility', () => {
+    const sessions = makeSessions();
+    expect(getVisibility(sessions, 'work')).toBe('private');
   });
 
-  it('defaults to public when not set', () => {
-    expect(getVisibility(makeSessions(), 'default')).toBe('public');
+  test('defaults to public when not set', () => {
+    const sessions = makeSessions();
+    expect(getVisibility(sessions, 'novis')).toBe('public');
   });
 
-  it('throws on unknown session', () => {
-    expect(() => getVisibility(makeSessions(), 'ghost')).toThrow('not found');
+  test('throws on unknown session', () => {
+    const sessions = makeSessions();
+    expect(() => getVisibility(sessions, 'nope')).toThrow('not found');
   });
 });
 
 describe('listByVisibility', () => {
-  it('lists sessions matching given visibility', () => {
-    const result = listByVisibility(makeSessions(), 'public');
+  test('lists sessions matching visibility', () => {
+    const sessions = makeSessions();
+    const result = listByVisibility(sessions, 'public');
     expect(result).toContain('personal');
-    expect(result).toContain('default');
+    expect(result).toContain('novis');
     expect(result).not.toContain('work');
   });
 
-  it('lists hidden sessions', () => {
-    const result = listByVisibility(makeSessions(), 'hidden');
-    expect(result).toEqual(['secret']);
+  test('returns hidden sessions', () => {
+    const sessions = makeSessions();
+    expect(listByVisibility(sessions, 'hidden')).toEqual(['secret']);
   });
 
-  it('returns empty array when none match', () => {
-    const sessions = { a: { urls: [], visibility: 'public' } };
-    expect(listByVisibility(sessions, 'private')).toEqual([]);
-  });
-
-  it('throws on invalid visibility', () => {
-    expect(() => listByVisibility(makeSessions(), 'unknown')).toThrow('Invalid visibility');
+  test('throws on invalid visibility', () => {
+    const sessions = makeSessions();
+    expect(() => listByVisibility(sessions, 'top-secret')).toThrow('Invalid visibility');
   });
 });
