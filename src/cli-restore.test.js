@@ -33,6 +33,21 @@ describe('restore command', () => {
     );
   });
 
+  test('restores a session with a custom browser', async () => {
+    validateBrowser.mockReturnValue(null);
+    getSession.mockReturnValue({ name: 'work', urls: ['https://a.com'] });
+    restoreSession.mockResolvedValue();
+
+    const program = makeProgram();
+    await program.parseAsync(['restore', 'work', '--browser', 'firefox'], { from: 'user' });
+
+    expect(validateBrowser).toHaveBeenCalledWith('firefox');
+    expect(restoreSession).toHaveBeenCalledWith(
+      { name: 'work', urls: ['https://a.com'] },
+      'firefox'
+    );
+  });
+
   test('exits with error for invalid browser', async () => {
     validateBrowser.mockReturnValue('unsupported browser: badbrowser');
     const program = makeProgram();
