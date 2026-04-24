@@ -44,6 +44,18 @@ describe('sort command', () => {
     expect(saved.work.urls[0]).toBe('https://z.com');
   });
 
+  it('does not mutate other sessions when sorting', async () => {
+    readSessions.mockResolvedValue({
+      work: { urls: ['https://z.com', 'https://a.com'] },
+      personal: { urls: ['https://c.com', 'https://b.com'] },
+    });
+
+    await makeProgram().parseAsync(['node', 'test', 'sort', 'work']);
+
+    const saved = writeSessions.mock.calls[0][0];
+    expect(saved.personal.urls).toEqual(['https://c.com', 'https://b.com']);
+  });
+
   it('errors if session not found', async () => {
     readSessions.mockResolvedValue({});
     const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
