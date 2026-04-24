@@ -48,6 +48,17 @@ describe('import command', () => {
     exitSpy.mockRestore();
   });
 
+  it('exits if file contains invalid JSON', () => {
+    fs.readFileSync.mockReturnValue('not valid json {{');
+
+    const exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => { throw new Error('exit'); });
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    expect(() => makeProgram().parse(['import', 'bad.json'], { from: 'user' })).toThrow('exit');
+    expect(exitSpy).toHaveBeenCalledWith(1);
+    exitSpy.mockRestore();
+  });
+
   it('skips sessions with missing name or urls', () => {
     const sessions = [{ name: 'bad' }, { urls: ['https://x.com'] }, { name: 'ok', urls: ['https://ok.com'] }];
     fs.readFileSync.mockReturnValue(JSON.stringify(sessions));
