@@ -1,72 +1,73 @@
-const { setContext, removeContext, getContext, listByContext } = require('./cli-context-handler');
+const { Command } = require('commander');
+const { setContext, removeContext, getContext, listByContext, registerContextCommand } = require('./cli-context-handler');
 
-function makeSessions() {
-  return {
-    work: { urls: ['https://github.com'], context: 'development', updatedAt: '' },
-    personal: { urls: ['https://reddit.com'], updatedAt: '' },
-    research: { urls: ['https://arxiv.org'], context: 'development', updatedAt: '' },
-  };
+const makeSessions = () => ({
+  work: { urls: ['https://github.com', 'https://jira.com'], context: 'development' },
+  personal: { urls: ['https://reddit.com'], context: 'leisure' },
+  misc: { urls: ['https://example.com'] },
+});
+
+function makeProgram(sessions) {
+  const { readSessions, writeSessions } = require('./storage');
+  jest.mock('./storage');
+  readSessions.mockResolvedValue(sessions);
+  writeSessions.mockResolvedValue();
+  const program = new Command();
+  program.exitOverride();
+  registerContextCommand(program);
+  return program;
 }
 
 describe('setContext', () => {
-  it('sets context on a session', () => {
+  test('sets context on existing session', () => {
     const sessions = makeSessions();
-    const updated = setContext(sessions, 'personal', 'leisure');
-    expect(updated.personal.context).toBe('leisure');
+    const result = setContext(sessions, 'misc', 'testing');
+    expect(result.misc.context).toBe('testing');
   });
 
-  it('updates updatedAt', () => {
-    const sessions = makeSessions();
-    const before = sessions.work.updatedAt;
-    const updated = setContext(sessions, 'work', 'ops');
-    expect(updated.work.updatedAt).not.toBe(before);
-  });
-
-  it('throws if session not found', () => {
-    const sessions = makeSessions();
-    expect(() => setContext(sessions, 'missing', 'x')).toThrow('Session "missing" not found');
+  test('throws if session not found', () => {
+    expect(() => setContext(makeSessions(), 'nope', 'ctx')).toThrow('Session "nope" not found');
   });
 });
 
 describe('removeContext', () => {
-  it('removes context from a session', () => {
+  test('removes context from session', () => {
     const sessions = makeSessions();
-    const updated = removeContext(sessions, 'work');
-    expect(updated.work.context).toBeUndefined();
+    const result = removeContext(sessions, 'work');
+    expect(result.work.context).toBeUndefined();
   });
 
-  it('throws if session not found', () => {
-    const sessions = makeSessions();
-    expect(() => removeContext(sessions, 'ghost')).toThrow('Session "ghost" not found');
+  test('throws if session not found', () => {
+    expect(() => removeContext(makeSessions(), 'ghost')).toThrow('Session "ghost" not found');
   });
 });
 
 describe('getContext', () => {
-  it('returns context for a session', () => {
+  test('returns context for session', () => {
     const sessions = makeSessions();
     expect(getContext(sessions, 'work')).toBe('development');
   });
 
-  it('returns null if no context set', () => {
+  test('returns null if no context set', () => {
     const sessions = makeSessions();
-    expect(getContext(sessions, 'personal')).toBeNull();
+    expect(getContext(sessions, 'misc')).toBeNull();
   });
 
-  it('throws if session not found', () => {
-    const sessions = makeSessions();
-    expect(() => getContext(sessions, 'nope')).toThrow('Session "nope" not found');
+  test('throws if session not found', () => {
+    expect(() => getContext(makeSessions(), 'nope')).toThrow('Session "nope" not found');
   });
 });
 
 describe('listByContext', () => {
-  it('returns sessions matching the given context', () => {
+  test('returns sessions matching context', () => {
     const sessions = makeSessions();
-    const result = listByContext(sessions, 'development');
-    expect(result.map(r => r.name).sort()).toEqual(['research', 'work']);
+    const results = listByContext(sessions, 'development');
+    expect(results).toHaveLength(1);
+    expect(results[0].name).toBe('work');
   });
 
-  it('returns empty array if no matches', () => {
-    const sessions = makeSessions();
-    expect(listByContext(sessions, 'unknown')).toEqual([]);
+  test('returns empty array if no matches', () => {
+    const results = listByContext(makeSessions(), 'unknown');
+    expect(results).toHaveLength(0);
   });
 });

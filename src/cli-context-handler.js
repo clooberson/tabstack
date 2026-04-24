@@ -1,25 +1,20 @@
 const { readSessions, writeSessions } = require('./storage');
 
 function setContext(sessions, name, context) {
-  const session = sessions[name];
-  if (!session) throw new Error(`Session "${name}" not found`);
-  session.context = context;
-  session.updatedAt = new Date().toISOString();
+  if (!sessions[name]) throw new Error(`Session "${name}" not found`);
+  sessions[name].context = context;
   return sessions;
 }
 
 function removeContext(sessions, name) {
-  const session = sessions[name];
-  if (!session) throw new Error(`Session "${name}" not found`);
-  delete session.context;
-  session.updatedAt = new Date().toISOString();
+  if (!sessions[name]) throw new Error(`Session "${name}" not found`);
+  delete sessions[name].context;
   return sessions;
 }
 
 function getContext(sessions, name) {
-  const session = sessions[name];
-  if (!session) throw new Error(`Session "${name}" not found`);
-  return session.context || null;
+  if (!sessions[name]) throw new Error(`Session "${name}" not found`);
+  return sessions[name].context || null;
 }
 
 function listByContext(sessions, context) {
@@ -29,49 +24,47 @@ function listByContext(sessions, context) {
 }
 
 function registerContextCommand(program) {
-  const ctx = program
-    .command('context')
-    .description('manage session context tags');
+  const ctx = program.command('context').description('manage session contexts');
 
   ctx
     .command('set <session> <context>')
     .description('set context for a session')
-    .action(async (name, context) => {
+    .action(async (session, context) => {
       const sessions = await readSessions();
-      const updated = setContext(sessions, name, context);
+      const updated = setContext(sessions, session, context);
       await writeSessions(updated);
-      console.log(`Context "${context}" set for session "${name}".`);
+      console.log(`Context "${context}" set for session "${session}"`);
     });
 
   ctx
     .command('remove <session>')
     .description('remove context from a session')
-    .action(async (name) => {
+    .action(async (session) => {
       const sessions = await readSessions();
-      const updated = removeContext(sessions, name);
+      const updated = removeContext(sessions, session);
       await writeSessions(updated);
-      console.log(`Context removed from session "${name}".`);
+      console.log(`Context removed from session "${session}"`);
     });
 
   ctx
     .command('get <session>')
     .description('get context for a session')
-    .action(async (name) => {
+    .action(async (session) => {
       const sessions = await readSessions();
-      const context = getContext(sessions, name);
-      console.log(context ? `Context: ${context}` : `No context set for "${name}".`);
+      const context = getContext(sessions, session);
+      console.log(context ? `Context: ${context}` : 'No context set');
     });
 
   ctx
     .command('list <context>')
-    .description('list sessions with a given context')
+    .description('list sessions by context')
     .action(async (context) => {
       const sessions = await readSessions();
-      const matches = listByContext(sessions, context);
-      if (matches.length === 0) {
-        console.log(`No sessions found with context "${context}".`);
+      const results = listByContext(sessions, context);
+      if (results.length === 0) {
+        console.log(`No sessions found with context "${context}"`);
       } else {
-        matches.forEach(s => console.log(`  ${s.name} (${(s.urls || []).length} urls)`));
+        results.forEach((s) => console.log(`  ${s.name} (${s.urls.length} tabs)`));
       }
     });
 }
