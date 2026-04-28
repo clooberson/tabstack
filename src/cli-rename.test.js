@@ -11,6 +11,11 @@ function makeProgram() {
   return program;
 }
 
+async function runRename(args) {
+  const program = makeProgram();
+  return program.parseAsync(['node', 'test', 'rename', ...args]);
+}
+
 describe('rename command', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -20,8 +25,7 @@ describe('rename command', () => {
     storage.listSessions.mockReturnValue(['work']);
     storage.renameSession.mockImplementation(() => {});
 
-    const program = makeProgram();
-    await program.parseAsync(['node', 'test', 'rename', 'work', 'office']);
+    await runRename(['work', 'office']);
 
     expect(storage.renameSession).toHaveBeenCalledWith('work', 'office');
   });
@@ -30,9 +34,8 @@ describe('rename command', () => {
     storage.listSessions.mockReturnValue([]);
     const mockExit = jest.spyOn(process, 'exit').mockImplementation(() => { throw new Error('exit'); });
 
-    const program = makeProgram();
     await expect(
-      program.parseAsync(['node', 'test', 'rename', 'ghost', 'new'])
+      runRename(['ghost', 'new'])
     ).rejects.toThrow('exit');
 
     expect(storage.renameSession).not.toHaveBeenCalled();
@@ -43,11 +46,11 @@ describe('rename command', () => {
     storage.listSessions.mockReturnValue(['work', 'office']);
     const mockExit = jest.spyOn(process, 'exit').mockImplementation(() => { throw new Error('exit'); });
 
-    const program = makeProgram();
     await expect(
-      program.parseAsync(['node', 'test', 'rename', 'work', 'office'])
+      runRename(['work', 'office'])
     ).rejects.toThrow('exit');
 
+    expect(storage.renameSession).not.toHaveBeenCalled();
     mockExit.mockRestore();
   });
 });
